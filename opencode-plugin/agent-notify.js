@@ -1,23 +1,20 @@
-
-import { spawn } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
 import { existsSync } from "node:fs"
-import { homedir } from "node:os"
 
-const candidates = [
-  process.env.TMUX_AGENT_NOTIFY_DIR,
-  `${homedir()}/.tmux/plugins/tmux-agent-notify`,
-  `${homedir()}/.config/tmux/plugins/tmux-agent-notify`,
-].filter(Boolean)
+const resolveRoot = () => {
+  if (process.env.TMUX_AGENT_NOTIFY_DIR) return process.env.TMUX_AGENT_NOTIFY_DIR
+  const r = spawnSync("tmux", ["show-option", "-gqv", "@agent_notify_root"], { encoding: "utf8" })
+  return (r.stdout || "").trim() || null
+}
 
-const pluginDir = candidates.find((dir) => existsSync(`${dir}/scripts/notify.sh`))
+const root = resolveRoot()
+const script = root ? `${root}/scripts/notify.sh` : null
+const usable = script && existsSync(script)
 
 const notify = (state) => {
-  if (!pluginDir || !process.env.TMUX_PANE) return
+  if (!usable || !process.env.TMUX_PANE) return
   try {
-    spawn(`${pluginDir}/scripts/notify.sh`, ["opencode", state], {
-      stdio: "ignore",
-      detached: true,
-    }).unref()
+    spawn(script, ["opencode", state], { stdio: "ignore", detached: true }).unref()
   } catch {
   }
 }

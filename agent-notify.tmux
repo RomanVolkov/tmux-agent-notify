@@ -39,6 +39,7 @@ wrap_format() {
 }
 
 main() {
+	tmux set-option -g @agent_notify_root "$CURRENT_DIR"
 	tmux set-option -g focus-events on
 	tmux set-option -g monitor-bell on
 
