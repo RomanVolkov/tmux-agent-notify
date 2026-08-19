@@ -7,8 +7,10 @@ PLUGIN_DIR="$(dirname "$SCRIPTS_DIR")"
 CLAUDE_SETTINGS="${CLAUDE_SETTINGS:-$HOME/.claude/settings.json}"
 CODEX_CONFIG="${CODEX_CONFIG:-$HOME/.codex/config.toml}"
 OPENCODE_PLUGIN_DIR="${OPENCODE_PLUGIN_DIR:-$HOME/.config/opencode/plugin}"
+AGY_HOOKS_CONFIG="${AGY_HOOKS_CONFIG:-$HOME/.gemini/config/hooks.json}"
 
 CLAUDE_CMD_PREFIX='r="$(tmux show-option -gqv @agent_notify_root 2>/dev/null)"; [ -z "$r" ] || "$r/scripts/notify-claude.sh" '
+AGY_CMD_PREFIX='r="$(tmux show-option -gqv @agent_notify_root 2>/dev/null)"; [ -z "$r" ] || "$r/scripts/notify-agy.sh" '
 
 mode="print"
 [ "${1:-}" = "--apply" ] && mode="apply"
@@ -76,6 +78,41 @@ apply_opencode() {
 	echo "opencode: plugin copied into $OPENCODE_PLUGIN_DIR"
 }
 
+agy_snippet() {
+	cat <<'EOF'
+{
+  "agent-notify": {
+    "PreInvocation": [{"type": "command", "command": "r=\"$(tmux show-option -gqv @agent_notify_root 2>/dev/null)\"; [ -z \"$r\" ] || \"$r/scripts/notify-agy.sh\" PreInvocation"}],
+    "Stop": [{"type": "command", "command": "r=\"$(tmux show-option -gqv @agent_notify_root 2>/dev/null)\"; [ -z \"$r\" ] || \"$r/scripts/notify-agy.sh\" Stop"}],
+    "PreToolUse": [{"matcher": "ask_question", "hooks": [{"type": "command", "command": "r=\"$(tmux show-option -gqv @agent_notify_root 2>/dev/null)\"; [ -z \"$r\" ] || \"$r/scripts/notify-agy.sh\" PreToolUse"}]}]
+  }
+}
+EOF
+}
+
+apply_agy() {
+	if ! command -v jq >/dev/null 2>&1; then
+		echo "agy: jq required for --apply; add manually:" >&2
+		agy_snippet
+		return 0
+	fi
+	mkdir -p "$(dirname "$AGY_HOOKS_CONFIG")"
+	[ -f "$AGY_HOOKS_CONFIG" ] || echo '{}' >"$AGY_HOOKS_CONFIG"
+	if grep -q 'notify-agy.sh' "$AGY_HOOKS_CONFIG"; then
+		echo "agy: already installed ($AGY_HOOKS_CONFIG)"
+		return 0
+	fi
+	cp "$AGY_HOOKS_CONFIG" "$AGY_HOOKS_CONFIG.bak"
+	jq --arg pre "$AGY_CMD_PREFIX" '
+		.["agent-notify"] = {
+			"PreInvocation": [{"type": "command", "command": ($pre + "PreInvocation")}],
+			"Stop": [{"type": "command", "command": ($pre + "Stop")}],
+			"PreToolUse": [{"matcher": "ask_question", "hooks": [{"type": "command", "command": ($pre + "PreToolUse")}]}]
+		}
+	' "$AGY_HOOKS_CONFIG.bak" >"$AGY_HOOKS_CONFIG"
+	echo "agy: hooks added to $AGY_HOOKS_CONFIG (backup: $AGY_HOOKS_CONFIG.bak)"
+}
+
 if [ "$mode" = "print" ]; then
 	echo "# Claude Code — merge into $CLAUDE_SETTINGS:"
 	claude_snippet
@@ -86,10 +123,14 @@ if [ "$mode" = "print" ]; then
 	echo "# OpenCode — copy the plugin (it locates the scripts via the tmux option @agent_notify_root):"
 	echo "cp $PLUGIN_DIR/opencode-plugin/agent-notify.js $OPENCODE_PLUGIN_DIR/agent-notify.js"
 	echo
-	echo "# Antigravity/others: no setup — bell fallback (see @agent_notify_bell_procs)."
+	echo "# Antigravity (agy) — merge into $AGY_HOOKS_CONFIG:"
+	agy_snippet
+	echo
+	echo "# Others: bell fallback (see @agent_notify_bell_procs)."
 	echo "# Run with --apply to patch these files automatically."
 else
 	apply_claude
 	apply_codex
 	apply_opencode
+	apply_agy
 fi
