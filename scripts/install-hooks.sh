@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(dirname "$SCRIPTS_DIR")"
+PORTABLE_SCRIPTS_DIR="${SCRIPTS_DIR/#$HOME/\$HOME}"
 
 CLAUDE_SETTINGS="${CLAUDE_SETTINGS:-$HOME/.claude/settings.json}"
 CODEX_CONFIG="${CODEX_CONFIG:-$HOME/.codex/config.toml}"
@@ -15,9 +16,9 @@ claude_snippet() {
 	cat <<EOF
 {
   "hooks": {
-    "Notification": [{"hooks": [{"type": "command", "command": "$SCRIPTS_DIR/notify-claude.sh Notification"}]}],
-    "Stop": [{"hooks": [{"type": "command", "command": "$SCRIPTS_DIR/notify-claude.sh Stop"}]}],
-    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "$SCRIPTS_DIR/notify-claude.sh UserPromptSubmit"}]}]
+    "Notification": [{"hooks": [{"type": "command", "command": "$PORTABLE_SCRIPTS_DIR/notify-claude.sh Notification"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "$PORTABLE_SCRIPTS_DIR/notify-claude.sh Stop"}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "$PORTABLE_SCRIPTS_DIR/notify-claude.sh UserPromptSubmit"}]}]
   }
 }
 EOF
@@ -36,7 +37,7 @@ apply_claude() {
 		return 0
 	fi
 	cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.bak"
-	jq --arg cmd "$SCRIPTS_DIR/notify-claude.sh" '
+	jq --arg cmd "$PORTABLE_SCRIPTS_DIR/notify-claude.sh" '
 		def ensure(ev):
 			.hooks[ev] = ((.hooks[ev] // []) + [{"hooks": [{"type": "command", "command": ($cmd + " " + ev)}]}]);
 		.hooks //= {} | ensure("Notification") | ensure("Stop") | ensure("UserPromptSubmit")
@@ -68,9 +69,15 @@ apply_codex() {
 	echo "codex: notify added to $CODEX_CONFIG (backup: $CODEX_CONFIG.bak)"
 }
 
+opencode_link_target() {
+	python3 -c 'import os,sys;print(os.path.relpath(sys.argv[1], sys.argv[2]))' \
+		"$PLUGIN_DIR/opencode-plugin/agent-notify.js" "$OPENCODE_PLUGIN_DIR" 2>/dev/null ||
+		printf '%s' "$PLUGIN_DIR/opencode-plugin/agent-notify.js"
+}
+
 apply_opencode() {
 	mkdir -p "$OPENCODE_PLUGIN_DIR"
-	ln -sf "$PLUGIN_DIR/opencode-plugin/agent-notify.js" "$OPENCODE_PLUGIN_DIR/agent-notify.js"
+	ln -sf "$(opencode_link_target)" "$OPENCODE_PLUGIN_DIR/agent-notify.js"
 	echo "opencode: plugin linked into $OPENCODE_PLUGIN_DIR"
 }
 
@@ -82,7 +89,7 @@ if [ "$mode" = "print" ]; then
 	codex_snippet
 	echo
 	echo "# OpenCode — link the plugin:"
-	echo "ln -sf $PLUGIN_DIR/opencode-plugin/agent-notify.js $OPENCODE_PLUGIN_DIR/agent-notify.js"
+	echo "ln -sf $(opencode_link_target) $OPENCODE_PLUGIN_DIR/agent-notify.js"
 	echo
 	echo "# Antigravity/others: no setup — bell fallback (see @agent_notify_bell_procs)."
 	echo "# Run with --apply to patch these files automatically."
