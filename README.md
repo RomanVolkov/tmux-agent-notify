@@ -65,11 +65,15 @@ scripts/install-hooks.sh --apply
 |---|---|---|
 | Claude Code | hooks in `~/.claude/settings.json` | `Notification` → permission/question, `Stop` → done, `UserPromptSubmit` → clears |
 | Codex | `notify` in `~/.codex/config.toml` | `agent-turn-complete` → done, approval events → permission |
-| OpenCode | plugin in `~/.config/opencode/plugin/` | `session.idle` → done, `permission.*` → permission, `session.error` → error |
+| OpenCode | plugin in `~/.config/opencode/plugin/` (OpenCode v2) | `session.idle` → done, `permission.asked` → permission, `form.created` → question, `session.execution.failed`/`session.error` → error; `session.execution.started`, `permission.replied`, `form.replied`/`form.cancelled` → clears |
 | Antigravity (agy) | hooks in `~/.gemini/config/hooks.json` | `PreInvocation` → clears, `Stop` → done/error, `PreToolUse(ask_question)` → question |
 | Others | none — bell fallback | bell from a process matching `@agent_notify_bell_procs` → `!` |
 
 Restart running agents after installing — they read config at startup.
+
+OpenCode v2 runs plugins inside a shared background server, so the plugin locates the tmux pane
+from the session's project directory rather than from `TMUX_PANE`. If several OpenCode panes share
+one directory, the marker may land on another pane in that directory.
 
 ## Options
 

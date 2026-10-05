@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-agent="${1:?usage: notify.sh <agent> <state>}"
-state="${2:?usage: notify.sh <agent> <state>}"
+agent="${1:?usage: notify.sh <agent> <state> [pane]}"
+state="${2:?usage: notify.sh <agent> <state> [pane]}"
+# The OpenCode v2 plugin runs inside the shared server, so it passes the pane
+# it resolved for the session. Fall back to TMUX_PANE for direct callers.
+pane="${3:-${TMUX_PANE:-}}"
 
-[ -n "${TMUX_PANE:-}" ] && [ -n "${TMUX:-}" ] || exit 0
-win="$(tmux display-message -p -t "$TMUX_PANE" '#{window_id}' 2>/dev/null)" || exit 0
+[ -n "$pane" ] || exit 0
+win="$(tmux display-message -p -t "$pane" '#{window_id}' 2>/dev/null)" || exit 0
 
 if [ "$state" = "busy" ]; then
 	tmux set-option -uw -t "$win" @agent_state 2>/dev/null || true
@@ -15,7 +18,7 @@ if [ "$state" = "busy" ]; then
 fi
 
 if [ "$state" != "error" ]; then
-	visible="$(tmux display-message -p -t "$TMUX_PANE" '#{?#{&&:#{window_active},#{session_attached}},1,0}')"
+	visible="$(tmux display-message -p -t "$pane" '#{?#{&&:#{window_active},#{session_attached}},1,0}')"
 	[ "$visible" = "1" ] && exit 0
 fi
 
