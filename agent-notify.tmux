@@ -38,6 +38,16 @@ wrap_format() {
 	tmux set-option -g "$format_option" "${base}${snippet}"
 }
 
+wrap_rename_format() {
+	local current prefix
+	prefix='#{?#{m:codex*,#{pane_current_command}},cx:#{b:pane_current_path},'
+	current="$(tmux show-option -gqv automatic-rename-format)"
+	case "$current" in
+	"$prefix"*) return ;;
+	esac
+	tmux set-window-option -g automatic-rename-format "${prefix}${current}}"
+}
+
 main() {
 	tmux set-option -g @agent_notify_root "$CURRENT_DIR"
 	tmux set-option -g focus-events on
@@ -47,6 +57,7 @@ main() {
 	snippet="$(build_state_snippet)"
 	wrap_format window-status-format "$snippet"
 	wrap_format window-status-current-format "$snippet"
+	wrap_rename_format
 
 	tmux set-hook -g 'pane-focus-in[37]' 'set-option -uw @agent_state ; set-option -uw @agent_name'
 

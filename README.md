@@ -20,6 +20,10 @@ gets a marker in the status bar:
 A marker disappears when you visit the window or when the agent starts working again.
 `prefix + a` jumps to the next marked window.
 
+With tmux's `automatic-rename` enabled, Codex windows are named `cx:<directory>`
+(for example, `cx:my-project`). Other commands keep your existing window naming
+rules. Reloading the plugin preserves those rules without duplicating the prefix.
+
 ## How it works
 
 No daemon, no polling, no state files. Each agent has a built-in way to run a command on events
