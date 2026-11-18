@@ -9,7 +9,7 @@ This plugin makes tmux tell you: when an agent needs your input, finishes, or fa
 gets a marker in the status bar:
 
 ```text
-[dev]  1:vim  2:claude ⏸  3:codex ✔  4:agy !          14:32
+[dev]  1:nvim:app  2:cc:app ⏸  3:cx:api ✔  4:agy:web !          14:32
 ```
 
 - `⏸` yellow — waiting for permission or asked a question
@@ -23,6 +23,7 @@ A marker disappears when you visit the window or when the agent starts working a
 With tmux's `automatic-rename` enabled, Codex windows are named `cx:<directory>`
 (for example, `cx:my-project`). Other commands keep your existing window naming
 rules. Reloading the plugin preserves those rules without duplicating the prefix.
+The example also uses custom tmux naming rules for `nvim:`, `cc:`, and `agy:`.
 
 ## How it works
 
